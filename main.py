@@ -26,12 +26,16 @@ class GameStateMachine(StateMachine):
     def on_quiting(self):
         pygame.quit()
         exit()
+    def on_playing(self, game):
+        print ("Playing is need to load all HUD here? per scenes?")
     def on_menuing(self, game):
     # Load MENU HUD
         screen = game.screen
         enterlogo = pygame.image.load("Logos/EnterLogo.png").convert_alpha()
         enterlogo.set_alpha(192)
+        spot1 =  Spot(enterlogo.get_rect(),"PLAY",1,0)
 
+        game.add_spot_to_room(spot1)
         created_by = game.fonts[0].render("Created by Juan José Peña", True, (0,0,44))
 
         screen.blit(enterlogo, (((screen.get_width()/2)- (enterlogo.get_rect().width * 2.5)),(screen.get_height()*3/4)))
@@ -85,23 +89,20 @@ class Game:
             new_scene = Scene((0,0,20),rooms)
             scenes.append(new_scene)
         self.scenes = scenes
-
     def fade_in_scene(self):
         self.screen.fill((0,0,20))
         bg = self.scenes[self.target_scene].rooms[self.target_room].background
         bg.set_alpha(self.opacity)
         self.screen.blit(bg, (0,0))
         if self.opacity<256:
-            self.opacity += 32
+            self.opacity += 24
         else:
             self.opacity = 256
             # all options to switch from FADE IN
             if (self.target_state == "MENU"):
                 self.gsm.menuing(self)
             elif (self.target_state == "PLAY"):
-                self.gsm.playing()
-        
-
+                self.gsm.playing(self)
     def fade_out_scene(self):
         self.screen.fill((0,0,20))
         bg = self.scenes[self.scene].rooms[self.room].background
@@ -113,16 +114,18 @@ class Game:
             # all options to switch from FADE OUT
             if (self.target_state == "QUIT"):
                 self.gsm.quiting()
-            else:
+            elif (self.target_state == "PLAY"):
+                print("Estado: " + self.state)
+                print("Estado GSM: " + str(self.gsm.current_state))
                 self.gsm.fadein()
+            else:
+                print("Por lo menos fadea out: " + str(self.gsm.current_state))
         self.screen.blit(bg, (0,0))
-
     # Change state scene room
     def change_ssr(self,target_state, target_scene, target_room):
         self.target_state = target_state
         self.target_scene = target_scene
         self.target_room = target_room
-
     def switch_state(self):
         # Check if both states are diferent in order to switch states
         if (self.state != self.target_state):
@@ -140,8 +143,12 @@ class Game:
 
             # All code if the state is PLAY
             elif self.target_state == "PLAY":
-                print("Funciona el PLAY")
-
+                if self.state == "FADE_OUT":
+                    self.fade_out_scene()
+                elif self.state == "FADE_IN":
+                    self.fade_in_scene()
+                else:
+                    self.gsm.fadeout()
             # All code if the state is QUIT
             elif self.target_state == "QUIT":
                 if self.state == "FADE_OUT":
@@ -152,15 +159,52 @@ class Game:
                 print("No target state assigned")
         else:
             pass
+    def add_spot_to_room(self, spot):
+        self.scenes[self.scene].rooms[self.room].add_spot(spot)
+    def check_spot(self, click_pos):
+        for spot in self.scenes[self.scene].rooms[self.room]._spots:
+            if (spot._rectangle.collidepoint(click_pos) and spot._active):
+                self.change_ssr(spot._target_state, spot._target_scene, spot._target_room)
+            else:
+                pass
 class Scene:
-
-    def __init__(self, rgb=(0,0,20), rooms_list=None) :
+    def __init__(self, rgb=(0,0,20), rooms_list= None) :
         self.background_color = rgb
         self.rooms = rooms_list
-
 class Room:
     def __init__(self, background):
         self.background = background
+        self._spots = set()
+    def add_spot(self, spot):
+        self._spots.add(spot)
+class Spot:
+    def __init__(self, rectangle, target_state,target_scene, target_room, show = True, active = True):
+        self._rectangle = rectangle
+        self._target_state = target_state
+        self._target_scene = target_scene
+        self._target_room = target_room
+        self._show = show
+        self._active = active
+        self._observers = []
+    def register(self, spot):
+        self._observers.append(spot)
+    def unregister(self, spot):
+        if spot in self._observers:
+            self._observers.remove(spot)
+    def notify_observers(self, event):
+        for observer in self._observers:
+            observer.notify(event)
+    def notify(self, event):
+        if event == "Show":
+            self._show = True
+        elif event == "Hide":
+            self._show = False
+        elif event == "Activate":
+            self._active = True
+        elif event == "Deactivate":
+            self._active = False
+        else:
+            print ("Unknown event")
 
 # define a main function
 def main():
@@ -183,10 +227,10 @@ def main():
     mainfont = pygame.font.Font("Fonts/LCALLIG.TTF", 20)
     
     _new_game.addFont(mainfont)
-    #Custom event every 250ms
-    event_250ms = pygame.USEREVENT + 1
+    #Custom event every 100ms
+    event_100ms = pygame.USEREVENT + 1
 
-    pygame.time.set_timer(event_250ms,250)
+    pygame.time.set_timer(event_100ms,100)
     _new_game.change_ssr("MENU", 0,0)
     # main loop
     while True:
@@ -195,8 +239,12 @@ def main():
             # only do something if the event is of type QUIT
             if event.type == pygame.QUIT:
                 _new_game.change_ssr("QUIT", 1, 0)
-            if event.type == event_250ms:
+            if event.type == event_100ms:
                 _new_game.switch_state()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                print ("Target scene: " + str(_new_game.target_scene))
+                print (event.pos)
+                _new_game.check_spot(event.pos)
         pygame.display.update()
         #Maximum 44 fps
         clock.tick(44)
