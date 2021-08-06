@@ -27,18 +27,23 @@ class GameStateMachine(StateMachine):
         pygame.quit()
         exit()
     def on_playing(self, game):
-        print ("Playing is need to load all HUD here? per scenes?")
+        game.scene = game.target_scene
+        game.room = game.target_room
     def on_menuing(self, game):
     # Load MENU HUD
+        game.scene = game.target_scene
+        game.room = game.target_room
+
         screen = game.screen
         enterlogo = pygame.image.load("Logos/EnterLogo.png").convert_alpha()
         enterlogo.set_alpha(192)
-        spot1 =  Spot(enterlogo.get_rect(),"PLAY",1,0)
+        enterlogo_rect = enterlogo.get_rect(bottomleft = (50, 600))
+        spot1 =  Spot(enterlogo_rect,"PLAY",1,0)
 
         game.add_spot_to_room(spot1)
         created_by = game.fonts[0].render("Created by Juan José Peña", True, (0,0,44))
 
-        screen.blit(enterlogo, (((screen.get_width()/2)- (enterlogo.get_rect().width * 2.5)),(screen.get_height()*3/4)))
+        screen.blit(enterlogo, enterlogo_rect)
         screen.blit(created_by,(490,570))
 
     #On enter callbacks
@@ -242,8 +247,6 @@ def main():
             if event.type == event_100ms:
                 _new_game.switch_state()
             if event.type == pygame.MOUSEBUTTONDOWN:
-                print ("Target scene: " + str(_new_game.target_scene))
-                print (event.pos)
                 _new_game.check_spot(event.pos)
         pygame.display.update()
         #Maximum 44 fps
